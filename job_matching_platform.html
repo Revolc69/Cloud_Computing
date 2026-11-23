@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudHire - Job Matching Platform</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        aws: {
+                            orange: '#FF9900',
+                            navy: '#232F3E',
+                            squid: '#1A2432',
+                            light: '#F2F3F3'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Architecture / AWS Banner for Presentation -->
+    <div class="bg-aws-navy text-slate-300 text-xs py-1.5 px-4 flex justify-between items-center border-b border-slate-700">
+        <div class="flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="font-medium text-white">AWS Cloud Architecture Mode</span>
+            <span class="hidden sm:inline text-slate-400">| S3 Upload Ready • DynamoDB Mock Engine • Role RBAC</span>
+        </div>
+        <!-- Role Switcher -->
+        <div class="flex items-center gap-2">
+            <span class="text-slate-400 font-medium">Active Role:</span>
+            <select id="role-select" onchange="switchRole(this.value)" class="bg-aws-squid text-aws-orange border border-slate-600 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none focus:border-aws-orange cursor-pointer">
+                <option value="applicant">👤 Job Applicant</option>
+                <option value="employer">🏢 Employer / Recruiter</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Main Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="bg-aws-orange text-aws-navy p-2 rounded-lg font-bold text-xl flex items-center justify-center">
+                        <i class="fa-solid me-1.5 fa-cloud"></i>CloudHire
+                    </div>
+                    <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full border border-slate-200">v1.0-Cloud</span>
+                </div>
+
+                <!-- Applicant Nav Options -->
+                <nav id="applicant-nav" class="flex items-center gap-1 sm:gap-4">
+                    <button onclick="showSection('app-jobs')" class="nav-btn-app text-slate-600 hover:text-aws-orange px-3 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5" data-target="app-jobs">
+                        <i class="fa-solid fa-briefcase text-xs"></i> Find Jobs
+                    </button>
+                    <button onclick="showSection('app-applications')" class="nav-btn-app text-slate-600 hover:text-aws-orange px-3 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5 relative" data-target="app-applications">
+                        <i class="fa-solid fa-paper-plane text-xs"></i> My Applications
+                        <span id="applied-count-badge" class="bg-aws-orange text-aws-navy font-bold text-xs px-1.5 py-0.2 rounded-full hidden">0</span>
+                    </button>
+                </nav>
+
+                <!-- Employer Nav Options -->
+                <nav id="employer-nav" class="hidden flex items-center gap-1 sm:gap-4">
+                    <button onclick="showSection('emp-dashboard')" class="nav-btn-emp text-slate-600 hover:text-aws-orange px-3 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5" data-target="emp-dashboard">
+                        <i class="fa-solid fa-chart-pie text-xs"></i> Dashboard
+                    </button>
+                    <button onclick="showSection('emp-jobs')" class="nav-btn-emp text-slate-600 hover:text-aws-orange px-3 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5" data-target="emp-jobs">
+                        <i class="fa-solid fa-list-check text-xs"></i> Manage Postings
+                    </button>
+                    <button onclick="openNewJobModal()" class="bg-aws-orange hover:bg-amber-500 text-aws-navy font-semibold px-3.5 py-1.5 rounded-lg text-sm shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus text-xs"></i> Post a Job
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Global Toast Alerts -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Main Container Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- ========================================== -->
+        <!-- SECTION 1: APPLICANT - JOB BOARD & SEARCH  -->
+        <!-- ========================================== -->
+        <section id="app-jobs" class="space-y-6">
+            <!-- Hero Search Header -->
+            <div class="bg-gradient-to-r from-aws-navy to-aws-squid rounded-2xl p-6 sm:p-8 text-white shadow-md">
+                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Discover Your Next Cloud & Tech Career</h1>
+                <p class="text-slate-300 text-sm sm:text-base mb-6 max-w-2xl">Browse verified positions across cloud computing, engineering, DevOps, and software development.</p>
+                
+                <!-- Search & Filters Bar -->
+                <div class="bg-white p-3 rounded-xl text-slate-800 grid grid-cols-1 md:grid-cols-4 gap-3 shadow-lg">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-400 text-sm"></i>
+                        <input type="text" id="filter-keyword" onkeyup="filterApplicantJobs()" placeholder="Title, keywords, or skills..." class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-aws-orange">
+                    </div>
+                    <div>
+                        <select id="filter-category" onchange="filterApplicantJobs()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-aws-orange text-slate-600">
+                            <option value="">All Categories</option>
+                            <option value="Cloud Architecture">Cloud Architecture</option>
+                            <option value="DevOps & SecOps">DevOps & SecOps</option>
+                            <option value="Software Development">Software Development</option>
+                            <option value="Data & Analytics">Data & Analytics</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select id="filter-type" onchange="filterApplicantJobs()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-aws-orange text-slate-600">
+                            <option value="">All Job Types</option>
+                            <option value="Full-Time">Full-Time</option>
+                            <option value="Part-Time">Part-Time</option>
+                            <option value="Contract">Contract</option>
+                            <option value="Remote">Remote</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button onclick="resetApplicantFilters()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-rotate-left text-xs"></i> Clear Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job Cards Grid -->
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">Available Job Openings</h2>
+                    <span id="jobs-count" class="text-xs text-slate-500 font-medium">Showing all positions</span>
+                </div>
+                <div id="applicant-jobs-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- Dynamically Rendered -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 2: APPLICANT - MY APPLICATIONS    -->
+        <!-- ========================================== -->
+        <section id="app-applications" class="space-y-6 hidden">
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h1 class="text-xl font-bold text-slate-800 mb-1">My Tracked Applications</h1>
+                <p class="text-slate-500 text-sm mb-6">Track application updates and AWS S3 uploaded resume logs in real time.</p>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">Applied Job</th>
+                                <th class="py-3 px-4">Company</th>
+                                <th class="py-3 px-4">Date Submitted</th>
+                                <th class="py-3 px-4">Resume Asset (S3)</th>
+                                <th class="py-3 px-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="applicant-applications-tbody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Dynamically Rendered -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 3: EMPLOYER - DASHBOARD           -->
+        <!-- ========================================== -->
+        <section id="emp-dashboard" class="space-y-6 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800">Employer Overview Dashboard</h1>
+                    <p class="text-slate-500 text-sm">Recruitment metrics and applicant dynamic processing hub.</p>
+                </div>
+                <button onclick="openNewJobModal()" class="bg-aws-orange hover:bg-amber-500 text-aws-navy font-semibold px-4 py-2 rounded-lg text-sm shadow-sm transition">
+                    + Create New Posting
+                </button>
+            </div>
+
+            <!-- Dashboard Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Active Listings</p>
+                        <h3 id="stat-active-jobs" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-amber-50 text-aws-orange flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-briefcase"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Total Applications</p>
+                        <h3 id="stat-total-apps" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Shortlisted</p>
+                        <h3 id="stat-shortlisted" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Review Pending</p>
+                        <h3 id="stat-pending" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Application Review Center Table -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Received Candidate Applications</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">Candidate Name</th>
+                                <th class="py-3 px-4">Job Title</th>
+                                <th class="py-3 px-4">Email / Contact</th>
+                                <th class="py-3 px-4">Resume / Bucket File</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employer-applications-tbody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Dynamically Rendered -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 4: EMPLOYER - MANAGE POSTINGS     -->
+        <!-- ========================================== -->
+        <section id="emp-jobs" class="space-y-6 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800">Manage Job Postings</h1>
+                    <p class="text-slate-500 text-sm">Create, edit, or remove job listings from the Cloud database.</p>
+                </div>
+                <button onclick="openNewJobModal()" class="bg-aws-orange hover:bg-amber-500 text-aws-navy font-semibold px-4 py-2 rounded-lg text-sm shadow-sm transition">
+                    + Add New Job
+                </button>
+            </div>
+
+            <div id="employer-jobs-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Dynamically Rendered Employer Job Cards -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-500 text-xs space-y-1">
+            <p class="font-medium text-slate-700">Cloud Computing Group Project - Job Matching Platform</p>
+            <p>Designed for Serverless AWS Deployment (S3, API Gateway, Lambda, DynamoDB)</p>
+        </div>
+    </footer>
+
+    <!-- ========================================== -->
+    <!-- MODAL 1: JOB APPLICATION FORM (APPLICANT)  -->
+    <!-- ========================================== -->
+    <div id="apply-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+            <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                <div>
+                    <h3 id="modal-job-title" class="text-lg font-bold text-slate-800">Apply for Position</h3>
+                    <p id="modal-job-company" class="text-xs text-aws-orange font-semibold"></p>
+                </div>
+                <button onclick="closeApplyModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="apply-form" onsubmit="handleApplySubmit(event)" class="space-y-4">
+                <input type="hidden" id="apply-job-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" id="applicant-name" required placeholder="e.g., Jane Doe" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input type="email" id="applicant-email" required placeholder="jane.doe@example.com" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none">
+                </div>
+
+                <!-- AWS S3 File Upload Simulation -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                        Resume Attachment <span class="text-aws-orange text-xs">(Simulated AWS S3 Direct Upload)</span>
+                    </label>
+                    <div class="border-2 border-dashed border-slate-200 hover:border-aws-orange rounded-xl p-4 text-center cursor-pointer transition bg-slate-50 relative">
+                        <input type="file" id="applicant-resume" required onchange="handleFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-aws-orange mb-1"></i>
+                        <p class="text-xs font-medium text-slate-700" id="file-label-text">Click or drag resume (PDF, DOCX up to 5MB)</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Generates pre-signed URL to <code class="bg-slate-200 px-1 rounded text-slate-700">s3://job-resumes-bucket/</code></p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cover Note / Remarks</label>
+                    <textarea id="applicant-notes" rows="3" placeholder="Briefly describe why you are a great fit..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeApplyModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-aws-orange hover:bg-amber-500 text-aws-navy font-bold rounded-lg text-sm shadow-sm transition flex items-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Application
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 2: CREATE/EDIT JOB POSTING (EMPLOYER) -->
+    <!-- ========================================== -->
+    <div id="job-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+            <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                <div>
+                    <h3 id="job-modal-heading" class="text-lg font-bold text-slate-800">Post New Opportunity</h3>
+                    <p class="text-xs text-slate-500">Record will be saved into local DynamoDB state store.</p>
+                </div>
+                <button onclick="closeJobModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="job-form" onsubmit="handleJobFormSubmit(event)" class="space-y-4">
+                <input type="hidden" id="edit-job-id">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Job Title</label>
+                        <input type="text" id="job-title-input" required placeholder="e.g., Cloud Architect" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Company Name</label>
+                        <input type="text" id="job-company-input" required placeholder="e.g., CloudScale Solutions" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+                        <select id="job-category-input" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none text-slate-700">
+                            <option value="Cloud Architecture">Cloud Architecture</option>
+                            <option value="DevOps & SecOps">DevOps & SecOps</option>
+                            <option value="Software Development">Software Development</option>
+                            <option value="Data & Analytics">Data & Analytics</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Location</label>
+                        <input type="text" id="job-location-input" required placeholder="Remote / Manila" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Job Type</label>
+                        <select id="job-type-input" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none text-slate-700">
+                            <option value="Full-Time">Full-Time</option>
+                            <option value="Part-Time">Part-Time</option>
+                            <option value="Contract">Contract</option>
+                            <option value="Remote">Remote</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Detailed Description & Requirements</label>
+                    <textarea id="job-desc-input" rows="4" required placeholder="Key responsibilities, required AWS certifications, tech stack..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-aws-orange focus:outline-none"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeJobModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-aws-orange hover:bg-amber-500 text-aws-navy font-bold rounded-lg text-sm shadow-sm transition">
+                        Save Posting
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        // Seed initial data
+        const initialJobs = [
+            {
+                id: "job-101",
+                title: "Senior AWS Cloud Engineer",
+                company: "Nimbus Scale Inc.",
+                category: "Cloud Architecture",
+                location: "Remote",
+                type: "Full-Time",
+                description: "Looking for an expert to manage multi-region EC2 clusters, Auto Scaling groups, and configure Terraform CI/CD pipelines.",
+                date: "2026-11-20"
+            },
+            {
+                id: "job-102",
+                title: "Serverless Node.js Developer",
+                company: "Apex Tech Labs",
+                category: "Software Development",
+                location: "Quezon City / Hybrid",
+                type: "Contract",
+                description: "Build microservices utilizing AWS Lambda, DynamoDB, API Gateway, and EventBridge. Node.js/TypeScript background required.",
+                date: "2026-11-22"
+            },
+            {
+                id: "job-103",
+                title: "DevOps & SecOps Specialist",
+                company: "CyberGuard Global",
+                category: "DevOps & SecOps",
+                location: "BGC Taguig",
+                type: "Full-Time",
+                description: "Implement IAM least-privilege security policies, manage VPC flow logs, GuardDuty alerts, and AWS CloudTrail auditing.",
+                date: "2026-11-23"
+            }
+        ];
+
+        const initialApplications = [
+            {
+                id: "app-1001",
+                jobId: "job-101",
+                jobTitle: "Senior AWS Cloud Engineer",
+                company: "Nimbus Scale Inc.",
+                applicantName: "Alex Mercer",
+                applicantEmail: "alex.mercer@cloudnet.io",
+                resumeFileName: "AlexMercer_AWS_Cert.pdf",
+                notes: "Certified Solutions Architect Professional with 5 years AWS experience.",
+                status: "Shortlisted",
+                appliedDate: "2026-11-21"
+            }
+        ];
+
+        // Global State initialization
+        let currentRole = 'applicant';
+        let selectedFile = null;
+
+        function getJobs() {
+            const data = localStorage.getItem('ch_jobs');
+            return data ? JSON.parse(data) : initialJobs;
+        }
+
+        function saveJobs(jobs) {
+            localStorage.setItem('ch_jobs', JSON.stringify(jobs));
+        }
+
+        function getApplications() {
+            const data = localStorage.getItem('ch_applications');
+            return data ? JSON.parse(data) : initialApplications;
+        }
+
+        function saveApplications(apps) {
+            localStorage.setItem('ch_applications', JSON.stringify(apps));
+        }
+
+        // Initialize state on boot
+        if (!localStorage.getItem('ch_jobs')) saveJobs(initialJobs);
+        if (!localStorage.getItem('ch_applications')) saveApplications(initialApplications);
+
+        window.onload = function() {
+            renderApplicantJobs();
+            renderApplicantApplications();
+            renderEmployerDashboard();
+            renderEmployerJobs();
+        };
+
+        // Switch RBAC Role
+        function switchRole(role) {
+            currentRole = role;
+            const appNav = document.getElementById('applicant-nav');
+            const empNav = document.getElementById('employer-nav');
+
+            if (role === 'applicant') {
+                appNav.classList.remove('hidden');
+                empNav.classList.add('hidden');
+                showSection('app-jobs');
+                showToast('Switched to Applicant Role', 'info');
+            } else {
+                appNav.classList.add('hidden');
+                empNav.classList.remove('hidden');
+                showSection('emp-dashboard');
+                showToast('Switched to Employer / Manager Role', 'info');
+            }
+        }
+
+        // Navigation tab swapper
+        function showSection(sectionId) {
+            // Hide all sections
+            ['app-jobs', 'app-applications', 'emp-dashboard', 'emp-jobs'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            // Show targeted section
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            // Refresh view states
+            if(sectionId === 'app-jobs') renderApplicantJobs();
+            if(sectionId === 'app-applications') renderApplicantApplications();
+            if(sectionId === 'emp-dashboard') renderEmployerDashboard();
+            if(sectionId === 'emp-jobs') renderEmployerJobs();
+        }
+
+        // Toast Alert System
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-aws-navy';
+            
+            toast.className = `${bgColor} text-white text-xs font-semibold px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 transform transition-all duration-300 pointer-events-auto`;
+            toast.innerHTML = `<i class="${type === 'success' ? 'fa-solid fa-check-circle' : 'fa-solid fa-info-circle'}"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ==========================================
+        // APPLICANT LOGIC & RENDERING
+        // ==========================================
+        function renderApplicantJobs() {
+            const jobs = getJobs();
+            const keyword = document.getElementById('filter-keyword').value.toLowerCase();
+            const category = document.getElementById('filter-category').value;
+            const type = document.getElementById('filter-type').value;
+
+            const filtered = jobs.filter(j => {
+                const matchKw = j.title.toLowerCase().includes(keyword) || 
+                                j.company.toLowerCase().includes(keyword) || 
+                                j.description.toLowerCase().includes(keyword);
+                const matchCat = category === "" || j.category === category;
+                const matchType = type === "" || j.type === type;
+                return matchKw && matchCat && matchType;
+            });
+
+            const grid = document.getElementById('applicant-jobs-list');
+            document.getElementById('jobs-count').innerText = `Showing ${filtered.length} of ${jobs.length} open roles`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-white p-8 text-center rounded-xl border border-slate-200">
+                        <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2"></i>
+                        <p class="text-sm text-slate-500 font-medium">No job postings found matching your current filters.</p>
+                    </div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(job => `
+                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[11px] font-bold tracking-wider text-aws-orange bg-amber-50 px-2 py-0.5 rounded border border-amber-200 uppercase">${job.category}</span>
+                            <span class="text-xs text-slate-400"><i class="fa-regular fa-clock me-1"></i>${job.date}</span>
+                        </div>
+                        <h3 class="font-bold text-slate-800 text-base mb-1">${job.title}</h3>
+                        <p class="text-xs text-slate-600 font-medium mb-3"><i class="fa-solid fa-building me-1 text-slate-400"></i>${job.company} • ${job.location}</p>
+                        <p class="text-xs text-slate-500 line-clamp-3 mb-4 leading-relaxed">${job.description}</p>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">${job.type}</span>
+                        <button onclick="openApplyModal('${job.id}')" class="bg-aws-navy hover:bg-aws-squid text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                            Apply Now <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterApplicantJobs() {
+            renderApplicantJobs();
+        }
+
+        function resetApplicantFilters() {
+            document.getElementById('filter-keyword').value = '';
+            document.getElementById('filter-category').value = '';
+            document.getElementById('filter-type').value = '';
+            renderApplicantJobs();
+        }
+
+        function openApplyModal(jobId) {
+            const jobs = getJobs();
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+
+            document.getElementById('apply-job-id').value = job.id;
+            document.getElementById('modal-job-title').innerText = `Apply for: ${job.title}`;
+            document.getElementById('modal-job-company').innerText = job.company;
+            document.getElementById('file-label-text').innerText = 'Click or drag resume (PDF, DOCX up to 5MB)';
+            selectedFile = null;
+
+            document.getElementById('apply-modal').classList.remove('hidden');
+        }
+
+        function closeApplyModal() {
+            document.getElementById('apply-modal').classList.add('hidden');
+            document.getElementById('apply-form').reset();
+        }
+
+        function handleFileSelect(e) {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                document.getElementById('file-label-text').innerText = `Selected File: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
+            }
+        }
+
+        function handleApplySubmit(e) {
+            e.preventDefault();
+            const jobId = document.getElementById('apply-job-id').value;
+            const jobs = getJobs();
+            const job = jobs.find(j => j.id === jobId);
+
+            const newApp = {
+                id: 'app-' + Date.now().toString().slice(-5),
+                jobId: jobId,
+                jobTitle: job ? job.title : 'Position',
+                company: job ? job.company : 'Company',
+                applicantName: document.getElementById('applicant-name').value,
+                applicantEmail: document.getElementById('applicant-email').value,
+                resumeFileName: selectedFile ? selectedFile.name : 'resume_uploaded.pdf',
+                notes: document.getElementById('applicant-notes').value,
+                status: 'Pending',
+                appliedDate: new Date().toISOString().split('T')[0]
+            };
+
+            const apps = getApplications();
+            apps.unshift(newApp);
+            saveApplications(apps);
+
+            closeApplyModal();
+            showToast('Application & S3 Resume Log Submitted Successfully!');
+            renderApplicantApplications();
+        }
+
+        function renderApplicantApplications() {
+            const apps = getApplications();
+            const tbody = document.getElementById('applicant-applications-tbody');
+            const badge = document.getElementById('applied-count-badge');
+
+            if (apps.length > 0) {
+                badge.innerText = apps.length;
+                badge.classList.remove('hidden');
+            }
+
+            if (apps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">You have not submitted any job applications yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = apps.map(app => {
+                let statusBadge = '';
+                if(app.status === 'Shortlisted') statusBadge = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full"><i class="fa-solid fa-circle-check me-1"></i>Shortlisted</span>`;
+                else if(app.status === 'Rejected') statusBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-full"><i class="fa-solid fa-circle-xmark me-1"></i>Not Selected</span>`;
+                else statusBadge = `<span class="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full"><i class="fa-solid fa-clock me-1"></i>Under Review</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-3.5 px-4 font-semibold text-slate-800">${app.jobTitle}</td>
+                        <td class="py-3.5 px-4 text-slate-600">${app.company}</td>
+                        <td class="py-3.5 px-4 text-slate-500">${app.appliedDate}</td>
+                        <td class="py-3.5 px-4 text-xs font-mono text-slate-600">
+                            <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-file-pdf text-rose-500"></i> ${app.resumeFileName}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">${statusBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // EMPLOYER LOGIC & RENDERING
+        // ==========================================
+        function renderEmployerDashboard() {
+            const jobs = getJobs();
+            const apps = getApplications();
+
+            document.getElementById('stat-active-jobs').innerText = jobs.length;
+            document.getElementById('stat-total-apps').innerText = apps.length;
+            document.getElementById('stat-shortlisted').innerText = apps.filter(a => a.status === 'Shortlisted').length;
+            document.getElementById('stat-pending').innerText = apps.filter(a => a.status === 'Pending').length;
+
+            const tbody = document.getElementById('employer-applications-tbody');
+
+            if (apps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">No applicant submissions registered yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = apps.map(app => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-3.5 px-4">
+                        <div class="font-bold text-slate-800">${app.applicantName}</div>
+                        <div class="text-xs text-slate-400">${app.notes || 'No extra notes'}</div>
+                    </td>
+                    <td class="py-3.5 px-4 text-slate-700 font-medium">${app.jobTitle}</td>
+                    <td class="py-3.5 px-4 text-slate-600 text-xs">${app.applicantEmail}</td>
+                    <td class="py-3.5 px-4 font-mono text-xs text-slate-600">
+                        <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 inline-flex items-center gap-1">
+                            <i class="fa-solid fa-box-archive text-aws-orange"></i> s3://${app.resumeFileName}
+                        </span>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <select onchange="updateApplicationStatus('${app.id}', this.value)" class="text-xs font-semibold px-2 py-1 rounded border border-slate-300 focus:outline-none ${
+                            app.status === 'Shortlisted' ? 'bg-emerald-50 text-emerald-700 border-emerald-300' :
+                            app.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-300' : 'bg-amber-50 text-amber-700 border-amber-300'
+                        }">
+                            <option value="Pending" ${app.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option value="Shortlisted" ${app.status === 'Shortlisted' ? 'selected' : ''}>Shortlist Candidate</option>
+                            <option value="Rejected" ${app.status === 'Rejected' ? 'selected' : ''}>Reject Application</option>
+                        </select>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                        <button onclick="deleteApplication('${app.id}')" class="text-slate-400 hover:text-rose-600 text-xs px-2 py-1">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateApplicationStatus(appId, newStatus) {
+            const apps = getApplications();
+            const target = apps.find(a => a.id === appId);
+            if (target) {
+                target.status = newStatus;
+                saveApplications(apps);
+                showToast(`Application updated to ${newStatus}`);
+                renderEmployerDashboard();
+            }
+        }
+
+        function deleteApplication(appId) {
+            let apps = getApplications();
+            apps = apps.filter(a => a.id !== appId);
+            saveApplications(apps);
+            showToast('Application log removed');
+            renderEmployerDashboard();
+        }
+
+        function renderEmployerJobs() {
+            const jobs = getJobs();
+            const grid = document.getElementById('employer-jobs-grid');
+
+            if (jobs.length === 0) {
+                grid.innerHTML = `<div class="col-span-full bg-white p-6 text-center text-slate-400 rounded-xl border border-slate-200">No active job listings. Post a job to get started.</div>`;
+                return;
+            }
+
+            grid.innerHTML = jobs.map(job => `
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold text-aws-orange bg-amber-50 px-2 py-0.5 rounded">${job.category}</span>
+                            <div class="flex gap-1">
+                                <button onclick="editJobPosting('${job.id}')" class="text-slate-400 hover:text-slate-600 p-1 text-xs"><i class="fa-solid fa-pen"></i> Edit</button>
+                                <button onclick="deleteJobPosting('${job.id}')" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i> Delete</button>
+                            </div>
+                        </div>
+                        <h3 class="font-bold text-slate-800 text-base">${job.title}</h3>
+                        <p class="text-xs text-slate-500 mb-2">${job.company} • ${job.location} • ${job.type}</p>
+                        <p class="text-xs text-slate-600 line-clamp-2">${job.description}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openNewJobModal() {
+            document.getElementById('edit-job-id').value = '';
+            document.getElementById('job-form').reset();
+            document.getElementById('job-modal-heading').innerText = 'Post New Opportunity';
+            document.getElementById('job-modal').classList.remove('hidden');
+        }
+
+        function closeJobModal() {
+            document.getElementById('job-modal').classList.add('hidden');
+        }
+
+        function editJobPosting(jobId) {
+            const jobs = getJobs();
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+
+            document.getElementById('edit-job-id').value = job.id;
+            document.getElementById('job-title-input').value = job.title;
+            document.getElementById('job-company-input').value = job.company;
+            document.getElementById('job-category-input').value = job.category;
+            document.getElementById('job-location-input').value = job.location;
+            document.getElementById('job-type-input').value = job.type;
+            document.getElementById('job-desc-input').value = job.description;
+
+            document.getElementById('job-modal-heading').innerText = 'Edit Job Posting';
+            document.getElementById('job-modal').classList.remove('hidden');
+        }
+
+        function handleJobFormSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('edit-job-id').value;
+            const jobs = getJobs();
+
+            const jobPayload = {
+                id: editId || 'job-' + Date.now().toString().slice(-4),
+                title: document.getElementById('job-title-input').value,
+                company: document.getElementById('job-company-input').value,
+                category: document.getElementById('job-category-input').value,
+                location: document.getElementById('job-location-input').value,
+                type: document.getElementById('job-type-input').value,
+                description: document.getElementById('job-desc-input').value,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            if (editId) {
+                const index = jobs.findIndex(j => j.id === editId);
+                if (index !== -1) jobs[index] = jobPayload;
+                showToast('Job posting updated!');
+            } else {
+                jobs.unshift(jobPayload);
+                showToast('New job opportunity created!');
+            }
+
+            saveJobs(jobs);
+            closeJobModal();
+            renderEmployerJobs();
+            renderEmployerDashboard();
+        }
+
+        function deleteJobPosting(jobId) {
+            let jobs = getJobs();
+            jobs = jobs.filter(j => j.id !== jobId);
+            saveJobs(jobs);
+            showToast('Job posting deleted', 'error');
+            renderEmployerJobs();
+            renderEmployerDashboard();
+        }
+    </script>
+</body>
+</html>
